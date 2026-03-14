@@ -1,0 +1,145 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+
+export interface PersonDate {
+  id: string;
+  date: string;
+  label: string;
+}
+
+export interface Person {
+  id: string;
+  name: string;
+  photoUri?: string;
+  tags: string[];
+  trustLevel: number;
+  description: string;
+  likes: string;
+  dislikes: string;
+  thingsToRemember: string;
+  quickFacts: string;
+  birthday?: string;
+  firstMet?: string;
+  lastMet?: string;
+  nextMeeting?: string;
+  customDates: PersonDate[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface AppState {
+  people: Person[];
+  pinHash: string | null;
+  isUnlocked: boolean;
+  isLoading: boolean;
+}
+
+interface AppContextValue extends AppState {
+  setupPin: (pin: string) => Promise<void>;
+  verifyPin: (pin: string) => Promise<boolean>;
+  lock: () => void;
+  addPerson: (p: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Person>;
+  updatePerson: (p: Person) => Promise<void>;
+  deletePerson: (id: string) => Promise<void>;
+  getPersonById: (id: string) => Person | undefined;
+}
+
+const Ctx = createContext<AppContextValue | null>(null);
+
+const STORAGE_KEY = 'pm_people_v1';
+const PIN_KEY = 'pm_pin_v1';
+
+async function sha256(text: string): Promise<string> {
+  return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, text);
+}
+
+function uid(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+}
+
+export function AppProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<AppState>({
+    people: [],
+    pinHash: null,
+    isUnlocked: false,
+    isLoading: true,
+  });
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [rawPeople, rawPin] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEY),
+          AsyncStorage.getItem(PIN_KEY),
+        ]);
+        setState(s => ({
+          ...s,
+          people: rawPeople ? JSON.parse(rawPeople) : [],
+          pinHash: rawPin,
+          isLoading: false,
+        }));
+      } catch {
+        setState(s => ({ ...s, isLoading: false }));
+      }
+    })();
+  }, []);
+
+  const savePeople = async (people: Person[]) => {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(people));
+  };
+
+  const setupPin = useCallback(async (pin: string) => {
+    const hash = await sha256(pin);
+    await AsyncStorage.setItem(PIN_KEY, hash);
+    setState(s => ({ ...s, pinHash: hash, isUnlocked: true }));
+  }, []);
+
+  const verifyPin = useCallback(async (pin: string): Promise<boolean> => {
+    const hash = await sha256(pin);
+    const ok = hash === state.pinHash;
+    if (ok) setState(s => ({ ...s, isUnlocked: true }));
+    return ok;
+  }, [state.pinHash]);
+
+  const lock = useCallback(() => {
+    setState(s => ({ ...s, isUnlocked: false }));
+  }, []);
+
+  const addPerson = useCallback(async (data: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>): Promise<Person> => {
+    const now = new Date().toISOString();
+    const person: Person = { ...data, id: uid(), createdAt: now, updatedAt: now };
+    const next = [...state.people, person];
+    await savePeople(next);
+    setState(s => ({ ...s, people: next }));
+    return person;
+  }, [state.people]);
+
+  const updatePerson = useCallback(async (person: Person) => {
+    const next = state.people.map(p => p.id === person.id ? { ...person, updatedAt: new Date().toISOString() } : p);
+    await savePeople(next);
+    setState(s => ({ ...s, people: next }));
+  }, [state.people]);
+
+  const deletePerson = useCallback(async (id: string) => {
+    const next = state.people.filter(p => p.id !== id);
+    await savePeople(next);
+    setState(s => ({ ...s, people: next }));
+  }, [state.people]);
+
+  const getPersonById = useCallback((id: string) => {
+    return state.people.find(p => p.id === id);
+  }, [state.people]);
+
+  return (
+    <Ctx.Provider value={{ ...state, setupPin, verifyPin, lock, addPerson, updatePerson, deletePerson, getPersonById }}>
+      {children}
+    </Ctx.Provider>
+  );
+}
+
+export function useApp() {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error('useApp must be used within AppProvider');
+  return ctx;
+}
