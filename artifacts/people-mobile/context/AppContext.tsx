@@ -1,6 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { router } from 'expo-router';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import { AppState } from 'react-native';
 
 export interface PersonDate {
   id: string;
@@ -28,49 +37,53 @@ export interface Person {
   updatedAt: string;
 }
 
-interface AppState {
+interface State {
   people: Person[];
   pinHash: string | null;
   isUnlocked: boolean;
   isLoading: boolean;
 }
 
-interface AppContextValue extends AppState {
+interface CtxValue extends State {
   setupPin: (pin: string) => Promise<void>;
   verifyPin: (pin: string) => Promise<boolean>;
   lock: () => void;
+  resetInactivity: () => void;
   addPerson: (p: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Person>;
   updatePerson: (p: Person) => Promise<void>;
   deletePerson: (id: string) => Promise<void>;
   getPersonById: (id: string) => Person | undefined;
 }
 
-const Ctx = createContext<AppContextValue | null>(null);
+const Ctx = createContext<CtxValue | null>(null);
 
-const STORAGE_KEY = 'pm_people_v1';
+const PEOPLE_KEY = 'pm_people_v1';
 const PIN_KEY = 'pm_pin_v1';
+const AUTO_LOCK_MS = 5 * 60 * 1000; // 5 minutes
 
 async function sha256(text: string): Promise<string> {
   return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, text);
 }
 
-function uid(): string {
+export function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AppState>({
+  const [state, setState] = useState<State>({
     people: [],
     pinHash: null,
     isUnlocked: false,
     isLoading: true,
   });
+  const lockTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appStateRef = useRef(AppState.currentState);
 
   useEffect(() => {
     (async () => {
       try {
         const [rawPeople, rawPin] = await Promise.all([
-          AsyncStorage.getItem(STORAGE_KEY),
+          AsyncStorage.getItem(PEOPLE_KEY),
           AsyncStorage.getItem(PIN_KEY),
         ]);
         setState(s => ({
@@ -85,8 +98,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  // Auto-lock when app goes to background
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      if (appStateRef.current === 'active' && next.match(/inactive|background/)) {
+        lockTimer.current = setTimeout(() => {
+          setState(s => {
+            if (s.isUnlocked) {
+              router.replace('/');
+              return { ...s, isUnlocked: false };
+            }
+            return s;
+          });
+        }, AUTO_LOCK_MS);
+      } else if (next === 'active') {
+        if (lockTimer.current) clearTimeout(lockTimer.current);
+      }
+      appStateRef.current = next;
+    });
+    return () => { sub.remove(); if (lockTimer.current) clearTimeout(lockTimer.current); };
+  }, []);
+
   const savePeople = async (people: Person[]) => {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(people));
+    await AsyncStorage.setItem(PEOPLE_KEY, JSON.stringify(people));
   };
 
   const setupPin = useCallback(async (pin: string) => {
@@ -104,6 +138,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const lock = useCallback(() => {
     setState(s => ({ ...s, isUnlocked: false }));
+    router.replace('/');
+  }, []);
+
+  const resetInactivity = useCallback(() => {
+    if (lockTimer.current) clearTimeout(lockTimer.current);
+    lockTimer.current = setTimeout(() => {
+      setState(s => {
+        if (s.isUnlocked) {
+          router.replace('/');
+          return { ...s, isUnlocked: false };
+        }
+        return s;
+      });
+    }, AUTO_LOCK_MS);
   }, []);
 
   const addPerson = useCallback(async (data: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>): Promise<Person> => {
@@ -116,7 +164,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state.people]);
 
   const updatePerson = useCallback(async (person: Person) => {
-    const next = state.people.map(p => p.id === person.id ? { ...person, updatedAt: new Date().toISOString() } : p);
+    const next = state.people.map(p =>
+      p.id === person.id ? { ...person, updatedAt: new Date().toISOString() } : p
+    );
     await savePeople(next);
     setState(s => ({ ...s, people: next }));
   }, [state.people]);
@@ -132,7 +182,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [state.people]);
 
   return (
-    <Ctx.Provider value={{ ...state, setupPin, verifyPin, lock, addPerson, updatePerson, deletePerson, getPersonById }}>
+    <Ctx.Provider value={{
+      ...state,
+      setupPin, verifyPin, lock, resetInactivity,
+      addPerson, updatePerson, deletePerson, getPersonById,
+    }}>
       {children}
     </Ctx.Provider>
   );
