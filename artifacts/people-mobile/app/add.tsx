@@ -245,9 +245,14 @@ export default function AddScreen() {
       return;
     }
     setSaving(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const person = await addPerson({ ...form, name: form.name.trim() });
-    router.replace({ pathname: '/profile/[id]', params: { id: person.id } });
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const person = await addPerson({ ...form, name: form.name.trim() });
+      router.replace({ pathname: '/profile/[id]', params: { id: person.id } });
+    } catch {
+      Alert.alert('Error', 'Failed to save. Please try again.');
+      setSaving(false);
+    }
   };
 
   return (

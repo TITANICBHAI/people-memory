@@ -242,9 +242,14 @@ export default function EditScreen() {
   const handleSave = async () => {
     if (!form.name.trim()) { Alert.alert('Name required', 'Please enter a name.'); return; }
     setSaving(true);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    await updatePerson({ ...form, name: form.name.trim() });
-    router.replace({ pathname: '/profile/[id]', params: { id: form.id } });
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await updatePerson({ ...form, name: form.name.trim() });
+      router.replace({ pathname: '/profile/[id]', params: { id: form.id } });
+    } catch {
+      Alert.alert('Error', 'Failed to save. Please try again.');
+      setSaving(false);
+    }
   };
 
   return (

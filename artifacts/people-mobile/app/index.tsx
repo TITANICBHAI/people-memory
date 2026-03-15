@@ -33,7 +33,7 @@ export default function PinScreen() {
   const dotScale = useRef([...Array(6)].map(() => new Animated.Value(1))).current;
 
   const isSetup = !pinHash;
-  const maxLen = 6;
+  const maxLen = 4;
 
   useEffect(() => {
     if (!isLoading && isUnlocked) {
@@ -127,7 +127,7 @@ export default function PinScreen() {
   const title = step === 'set' ? 'Set Your PIN' : step === 'confirm' ? 'Confirm PIN' : 'Enter PIN';
   const subtitle =
     step === 'set'
-      ? 'Choose a 4–6 digit PIN to protect your data'
+      ? 'Choose a 4-digit PIN to protect your data'
       : step === 'confirm'
       ? 'Enter the same PIN again'
       : 'Your data is locked';
@@ -145,7 +145,7 @@ export default function PinScreen() {
       </View>
 
       <Animated.View style={[s.dots, { transform: [{ translateX: shakeAnim }] }]}>
-        {[...Array(Math.max(4, currentLen + (currentLen < 6 ? 1 : 0), 4))].map((_, i) => (
+        {[...Array(maxLen)].map((_, i) => (
           <Animated.View
             key={i}
             style={[
