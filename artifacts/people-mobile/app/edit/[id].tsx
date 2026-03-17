@@ -337,13 +337,30 @@ const ts = StyleSheet.create({
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 9); }
 
+function TimeInput({ value, onChange, placeholder }: { value?: string; onChange: (v?: string) => void; placeholder?: string }) {
+  return (
+    <View style={ds.timeRow}>
+      <Feather name="clock" size={14} color={C.textDim} />
+      <TextInput
+        style={ds.timeInput}
+        value={value ?? ''}
+        onChangeText={v => onChange(v || undefined)}
+        placeholder={placeholder ?? 'HH:MM'}
+        placeholderTextColor={C.textDim}
+        keyboardType="numbers-and-punctuation"
+      />
+    </View>
+  );
+}
+
 function DatesSection({
-  birthday, firstMet, lastMet, nextMeeting, nextMeetingTime, customDates,
-  onBirthday, onFirstMet, onLastMet, onNextMeeting, onNextMeetingTime, onCustomDates,
+  birthday, birthdayReminderTime, firstMet, lastMet, nextMeeting, nextMeetingTime, customDates,
+  onBirthday, onBirthdayReminderTime, onFirstMet, onLastMet, onNextMeeting, onNextMeetingTime, onCustomDates,
 }: {
-  birthday?: string; firstMet?: string; lastMet?: string;
+  birthday?: string; birthdayReminderTime?: string; firstMet?: string; lastMet?: string;
   nextMeeting?: string; nextMeetingTime?: string; customDates: PersonDate[];
-  onBirthday: (v?: string) => void; onFirstMet: (v?: string) => void;
+  onBirthday: (v?: string) => void; onBirthdayReminderTime: (v?: string) => void;
+  onFirstMet: (v?: string) => void;
   onLastMet: (v?: string) => void; onNextMeeting: (v?: string) => void;
   onNextMeetingTime: (v?: string) => void; onCustomDates: (d: PersonDate[]) => void;
 }) {
@@ -351,16 +368,21 @@ function DatesSection({
   const [newLabel, setNewLabel] = useState('');
   const [newCustomDate, setNewCustomDate] = useState<string | undefined>();
   const [newReminder, setNewReminder] = useState(false);
+  const [newReminderTime, setNewReminderTime] = useState<string | undefined>();
   const [showCustomPicker, setShowCustomPicker] = useState(false);
 
   const hasDates = !!(birthday || firstMet || lastMet || nextMeeting || customDates.length > 0);
 
   const handleAddCustom = () => {
     if (newLabel.trim() && newCustomDate) {
-      onCustomDates([...customDates, { id: uid(), label: newLabel.trim(), date: newCustomDate, reminder: newReminder }]);
+      onCustomDates([...customDates, {
+        id: uid(), label: newLabel.trim(), date: newCustomDate,
+        reminder: newReminder, reminderTime: newReminder ? newReminderTime : undefined,
+      }]);
       setNewLabel('');
       setNewCustomDate(undefined);
       setNewReminder(false);
+      setNewReminderTime(undefined);
     }
   };
 
@@ -383,21 +405,27 @@ function DatesSection({
           <DatePickerField
             label="Birthday"
             value={birthday}
-            onChange={onBirthday}
+            onChange={v => { onBirthday(v); if (!v) onBirthdayReminderTime(undefined); }}
             hint="annual reminder"
           />
-          <DatePickerField
-            label="First Met"
-            value={firstMet}
-            onChange={onFirstMet}
-            hint="optional"
-          />
-          <DatePickerField
-            label="Last Met"
-            value={lastMet}
-            onChange={onLastMet}
-            hint="optional"
-          />
+          {birthday ? (
+            <>
+              <TimeInput
+                value={birthdayReminderTime}
+                onChange={onBirthdayReminderTime}
+                placeholder="HH:MM  (reminder time, default 9:00)"
+              />
+              <View style={[ds.notifHint, { marginTop: -10, marginBottom: 14 }]}>
+                <Feather name="bell" size={12} color={C.green} />
+                <Text style={ds.notifHintText}>
+                  {birthdayReminderTime ? `Birthday reminder set at ${birthdayReminderTime}` : 'Reminder at 9:00 AM — set a time to change'}
+                </Text>
+              </View>
+            </>
+          ) : null}
+
+          <DatePickerField label="First Met" value={firstMet} onChange={onFirstMet} hint="optional" />
+          <DatePickerField label="Last Met" value={lastMet} onChange={onLastMet} hint="optional" />
 
           <View style={ds.nextMeetWrap}>
             <DatePickerField
@@ -407,17 +435,11 @@ function DatesSection({
               hint="optional"
             />
             {nextMeeting ? (
-              <View style={ds.timeRow}>
-                <Feather name="clock" size={14} color={C.textDim} />
-                <TextInput
-                  style={ds.timeInput}
-                  value={nextMeetingTime ?? ''}
-                  onChangeText={v => onNextMeetingTime(v || undefined)}
-                  placeholder="HH:MM  (for reminder)"
-                  placeholderTextColor={C.textDim}
-                  keyboardType="numbers-and-punctuation"
-                />
-              </View>
+              <TimeInput
+                value={nextMeetingTime}
+                onChange={onNextMeetingTime}
+                placeholder="HH:MM  (for reminder)"
+              />
             ) : null}
             {nextMeeting && nextMeetingTime ? (
               <View style={ds.notifHint}>
@@ -434,26 +456,37 @@ function DatesSection({
 
           <FieldLabel text="Custom Events" />
           {customDates.map(d => (
-            <View key={d.id} style={ds.item}>
-              <View style={ds.itemText}>
-                <Text style={ds.itemLabel}>{d.label}</Text>
-                <Text style={ds.itemDate}>{formatDateDisplay(d.date)}</Text>
+            <View key={d.id}>
+              <View style={ds.item}>
+                <View style={ds.itemText}>
+                  <Text style={ds.itemLabel}>{d.label}</Text>
+                  <Text style={ds.itemDate}>{formatDateDisplay(d.date)}</Text>
+                </View>
+                <View style={ds.itemActions}>
+                  <Pressable
+                    style={[ds.bellBtn, d.reminder && ds.bellBtnOn]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onCustomDates(customDates.map(x => x.id === d.id
+                        ? { ...x, reminder: !x.reminder, reminderTime: x.reminder ? undefined : x.reminderTime }
+                        : x));
+                    }}
+                    hitSlop={6}
+                  >
+                    <Feather name={d.reminder ? 'bell' : 'bell-off'} size={14} color={d.reminder ? C.accent : C.textDim} />
+                  </Pressable>
+                  <Pressable onPress={() => onCustomDates(customDates.filter(x => x.id !== d.id))} hitSlop={6}>
+                    <Feather name="x" size={16} color={C.red} />
+                  </Pressable>
+                </View>
               </View>
-              <View style={ds.itemActions}>
-                <Pressable
-                  style={[ds.bellBtn, d.reminder && ds.bellBtnOn]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    onCustomDates(customDates.map(x => x.id === d.id ? { ...x, reminder: !x.reminder } : x));
-                  }}
-                  hitSlop={6}
-                >
-                  <Feather name={d.reminder ? 'bell' : 'bell-off'} size={14} color={d.reminder ? C.accent : C.textDim} />
-                </Pressable>
-                <Pressable onPress={() => onCustomDates(customDates.filter(x => x.id !== d.id))} hitSlop={6}>
-                  <Feather name="x" size={16} color={C.red} />
-                </Pressable>
-              </View>
+              {d.reminder ? (
+                <TimeInput
+                  value={d.reminderTime}
+                  onChange={v => onCustomDates(customDates.map(x => x.id === d.id ? { ...x, reminderTime: v } : x))}
+                  placeholder="HH:MM  (reminder time, default 9:00)"
+                />
+              ) : null}
             </View>
           ))}
 
@@ -476,7 +509,7 @@ function DatesSection({
             </Pressable>
             <Pressable
               style={[ds.bellBtn, newReminder && ds.bellBtnOn]}
-              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setNewReminder(r => !r); }}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setNewReminder(r => !r); if (newReminder) setNewReminderTime(undefined); }}
               hitSlop={6}
             >
               <Feather name={newReminder ? 'bell' : 'bell-off'} size={15} color={newReminder ? C.accent : C.textDim} />
@@ -489,6 +522,13 @@ function DatesSection({
               <Feather name="plus" size={18} color={C.accent} />
             </Pressable>
           </View>
+          {newReminder ? (
+            <TimeInput
+              value={newReminderTime}
+              onChange={setNewReminderTime}
+              placeholder="HH:MM  (reminder time, default 9:00)"
+            />
+          ) : null}
 
           {showCustomPicker && Platform.OS === 'ios' && (
             <Modal transparent animationType="slide" visible={showCustomPicker} onRequestClose={() => setShowCustomPicker(false)}>
@@ -608,7 +648,7 @@ export default function EditScreen() {
       }
 
       if (form.birthday) {
-        await scheduleBirthdayNotification(form.id, form.name.trim(), form.birthday);
+        await scheduleBirthdayNotification(form.id, form.name.trim(), form.birthday, form.birthdayReminderTime);
       } else {
         await cancelBirthdayNotification(form.id);
       }
@@ -619,7 +659,7 @@ export default function EditScreen() {
       }
       for (const d of form.customDates) {
         if (d.reminder) {
-          await scheduleCustomDateNotification(form.id, form.name.trim(), d.id, d.label, d.date);
+          await scheduleCustomDateNotification(form.id, form.name.trim(), d.id, d.label, d.date, d.reminderTime);
         } else {
           await cancelCustomDateNotification(form.id, d.id);
         }
@@ -672,12 +712,14 @@ export default function EditScreen() {
 
         <DatesSection
           birthday={form.birthday}
+          birthdayReminderTime={form.birthdayReminderTime}
           firstMet={form.firstMet}
           lastMet={form.lastMet}
           nextMeeting={form.nextMeeting}
           nextMeetingTime={form.nextMeetingTime}
           customDates={form.customDates}
           onBirthday={v => set('birthday', v)}
+          onBirthdayReminderTime={v => set('birthdayReminderTime', v)}
           onFirstMet={v => set('firstMet', v)}
           onLastMet={v => set('lastMet', v)}
           onNextMeeting={v => set('nextMeeting', v)}

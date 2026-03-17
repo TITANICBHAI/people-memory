@@ -36,12 +36,23 @@ async function cancelStoredNotifications(key: string): Promise<void> {
   await AsyncStorage.removeItem(key);
 }
 
+function parseTime(time?: string): { hour: number; minute: number } {
+  if (time) {
+    const parts = time.split(':').map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      return { hour: parts[0], minute: parts[1] };
+    }
+  }
+  return { hour: 9, minute: 0 };
+}
+
 async function scheduleAnnualNotifications(
   key: string,
   title: string,
   body: string,
   month: number,
   day: number,
+  time?: string,
 ): Promise<void> {
   await cancelStoredNotifications(key);
   if (Platform.OS === 'web') return;
@@ -49,12 +60,13 @@ async function scheduleAnnualNotifications(
   const granted = await requestNotificationPermission();
   if (!granted) return;
 
+  const { hour, minute } = parseTime(time);
   const ids: string[] = [];
   const now = new Date();
   let year = now.getFullYear();
 
   for (let i = 0; i < 5; i++) {
-    const trigger = new Date(year, month - 1, day, 9, 0, 0);
+    const trigger = new Date(year, month - 1, day, hour, minute, 0);
     if (trigger.getTime() > now.getTime()) {
       const id = await Notifications.scheduleNotificationAsync({
         content: { title, body, sound: true },
@@ -109,6 +121,7 @@ export async function scheduleBirthdayNotification(
   personId: string,
   personName: string,
   birthday: string,
+  reminderTime?: string,
 ): Promise<void> {
   const [, month, day] = birthday.split('-').map(Number);
   await scheduleAnnualNotifications(
@@ -117,6 +130,7 @@ export async function scheduleBirthdayNotification(
     `Today is ${personName}'s birthday — don't forget to wish them well!`,
     month,
     day,
+    reminderTime,
   );
 }
 
@@ -130,6 +144,7 @@ export async function scheduleCustomDateNotification(
   dateId: string,
   label: string,
   date: string,
+  reminderTime?: string,
 ): Promise<void> {
   const [, month, day] = date.split('-').map(Number);
   await scheduleAnnualNotifications(
@@ -138,6 +153,7 @@ export async function scheduleCustomDateNotification(
     `Today marks "${label}" for ${personName}`,
     month,
     day,
+    reminderTime,
   );
 }
 

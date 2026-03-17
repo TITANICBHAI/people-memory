@@ -16,6 +16,7 @@ export interface PersonDate {
   date: string;
   label: string;
   reminder?: boolean;
+  reminderTime?: string;
 }
 
 export interface Person {
@@ -30,6 +31,7 @@ export interface Person {
   thingsToRemember: string;
   quickFacts: string;
   birthday?: string;
+  birthdayReminderTime?: string;
   firstMet?: string;
   lastMet?: string;
   nextMeeting?: string;
