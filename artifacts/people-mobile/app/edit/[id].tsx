@@ -14,8 +14,21 @@ import {
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AvatarPicker, AvatarValue } from '@/components/AvatarPicker';
 import C from '@/constants/colors';
 import { Person, PersonDate, useApp } from '@/context/AppContext';
+
+function avatarValueToPhotoUri(av: AvatarValue): string | undefined {
+  if (av.type === 'preset' && av.presetId) return `preset:${av.presetId}`;
+  if (av.type === 'photo' && av.photoUri) return av.photoUri;
+  return undefined;
+}
+
+function photoUriToAvatarValue(uri?: string): AvatarValue {
+  if (!uri) return { type: 'initials' };
+  if (uri.startsWith('preset:')) return { type: 'preset', presetId: uri.slice(7) };
+  return { type: 'photo', photoUri: uri };
+}
 
 const PRESET_TAGS = ['Friend', 'Work', 'Family', 'Online'];
 
@@ -270,6 +283,11 @@ export default function EditScreen() {
         bottomOffset={20}
         keyboardShouldPersistTaps="handled"
       >
+        <AvatarPicker
+          value={photoUriToAvatarValue(form.photoUri)}
+          name={form.name}
+          onChange={av => set('photoUri', avatarValueToPhotoUri(av))}
+        />
         <Field label="Name *" value={form.name} onChange={v => set('name', v)} placeholder="Full name…" />
         <TagsEditor
           tags={form.tags}

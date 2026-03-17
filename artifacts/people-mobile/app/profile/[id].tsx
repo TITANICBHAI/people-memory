@@ -13,8 +13,15 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AvatarDisplay, AvatarValue } from '@/components/AvatarPicker';
 import C from '@/constants/colors';
 import { useApp } from '@/context/AppContext';
+
+function photoUriToAvatarValue(uri?: string): AvatarValue {
+  if (!uri) return { type: 'initials' };
+  if (uri.startsWith('preset:')) return { type: 'preset', presetId: uri.slice(7) };
+  return { type: 'photo', photoUri: uri };
+}
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -135,7 +142,6 @@ export default function ProfileScreen() {
     );
   }
 
-  const avatar = person.name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('');
   const trustColor = person.trustLevel <= 3 ? C.red : person.trustLevel <= 6 ? C.yellow : C.green;
 
   const handleDelete = () => {
@@ -189,9 +195,11 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
       >
         <View style={s.hero}>
-          <View style={[s.avatar, { borderColor: trustColor + '88' }]}>
-            <Text style={s.avatarText}>{avatar}</Text>
-          </View>
+          <AvatarDisplay
+            value={photoUriToAvatarValue(person.photoUri)}
+            name={person.name}
+            size={80}
+          />
           <Text style={s.name}>{person.name}</Text>
           {person.tags.length > 0 && (
             <View style={s.tagRow}>
@@ -315,16 +323,6 @@ const s = StyleSheet.create({
   },
   deleteBtn: { borderColor: C.red + '44' },
   hero: { alignItems: 'center', paddingVertical: 24, gap: 12 },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: C.header,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontSize: 30, fontFamily: 'Inter_700Bold', color: C.text },
   name: { fontSize: 26, fontFamily: 'Inter_700Bold', color: C.textBright },
   tagRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'center', paddingHorizontal: 16 },
   bodyText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: C.text, lineHeight: 22 },

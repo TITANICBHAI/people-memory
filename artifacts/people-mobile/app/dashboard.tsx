@@ -5,6 +5,8 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
+  Image,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -15,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PRESET_AVATARS } from '@/components/AvatarPicker';
 import C from '@/constants/colors';
 import { Person, useApp } from '@/context/AppContext';
 
@@ -37,8 +40,6 @@ function notesCount(p: Person) {
   return [p.description, p.likes, p.dislikes, p.thingsToRemember, p.quickFacts]
     .filter(Boolean).length + p.customDates.length;
 }
-
-const ALL_TAGS = ['Friend', 'Work', 'Family', 'Online'];
 
 // ─── micro-components ────────────────────────────────────────────────────────
 
@@ -73,9 +74,31 @@ const chip = StyleSheet.create({
   smallText: { fontSize: 9 },
 });
 
-function Avatar({ name, trustLevel, size = 44 }: { name: string; trustLevel: number; size?: number }) {
-  const initials = name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('');
-  const color = trustColor(trustLevel);
+function PersonAvatar({ person, size = 44 }: { person: Person; size?: number }) {
+  const initials = person.name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('');
+  const color = trustColor(person.trustLevel);
+
+  if (person.photoUri && person.photoUri.startsWith('preset:')) {
+    const id = person.photoUri.slice(7);
+    const preset = PRESET_AVATARS.find(a => a.id === id);
+    if (preset) {
+      return (
+        <View style={[av.wrap, { width: size, height: size, borderRadius: size / 2, backgroundColor: preset.bg, borderColor: color + '77' }]}>
+          <Text style={{ fontSize: size * 0.42 }}>{preset.icon}</Text>
+        </View>
+      );
+    }
+  }
+
+  if (person.photoUri && !person.photoUri.startsWith('preset:')) {
+    return (
+      <Image
+        source={{ uri: person.photoUri }}
+        style={[av.photo, { width: size, height: size, borderRadius: size / 2, borderColor: color + '77' }]}
+      />
+    );
+  }
+
   return (
     <View style={[av.wrap, { width: size, height: size, borderRadius: size / 2, borderColor: color + '77' }]}>
       <Text style={[av.text, { fontSize: size * 0.35 }]}>{initials}</Text>
@@ -84,6 +107,7 @@ function Avatar({ name, trustLevel, size = 44 }: { name: string; trustLevel: num
 }
 const av = StyleSheet.create({
   wrap: { backgroundColor: C.header, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  photo: { borderWidth: 2 },
   text: { fontFamily: 'Inter_700Bold', color: C.text },
 });
 
@@ -131,7 +155,7 @@ function PersonCard({ person, onPress, onDelete }: {
         ]);
       }}
     >
-      <Avatar name={person.name} trustLevel={person.trustLevel} />
+      <PersonAvatar person={person} />
       <View style={card.info}>
         <View style={card.nameRow}>
           <Text style={card.name} numberOfLines={1}>{person.name}</Text>
@@ -215,6 +239,93 @@ const tr = StyleSheet.create({
   cell: { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textMuted },
 });
 
+// ─── App Logo ─────────────────────────────────────────────────────────────────
+
+function AppLogo() {
+  return (
+    <View style={logo.wrap}>
+      <View style={logo.iconWrap}>
+        <View style={logo.dot1} />
+        <View style={logo.line1} />
+        <View style={logo.dot2} />
+        <View style={logo.line2} />
+        <View style={logo.dot3} />
+        <View style={logo.center} />
+      </View>
+      <Text style={logo.text}>PEOPLE</Text>
+    </View>
+  );
+}
+const logo = StyleSheet.create({
+  wrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  iconWrap: { width: 28, height: 28, position: 'relative' },
+  dot1: { position: 'absolute', top: 0, left: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent },
+  dot2: { position: 'absolute', top: 0, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: C.accentGlow },
+  dot3: { position: 'absolute', bottom: 0, left: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: C.accentGlow + 'AA' },
+  center: { position: 'absolute', bottom: 0, right: 4, width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent + '88' },
+  line1: { position: 'absolute', top: 3, left: 11, width: 10, height: 1.5, backgroundColor: C.accent + '66', transform: [{ rotate: '20deg' }] },
+  line2: { position: 'absolute', top: 14, left: 8, width: 12, height: 1.5, backgroundColor: C.accentGlow + '55', transform: [{ rotate: '-15deg' }] },
+  text: { fontSize: 24, fontFamily: 'Inter_700Bold', color: C.textBright, letterSpacing: 4 },
+});
+
+// ─── Add Tag Modal ─────────────────────────────────────────────────────────────
+
+function AddTagModal({ visible, onClose, onAdd }: { visible: boolean; onClose: () => void; onAdd: (tag: string) => void }) {
+  const [text, setText] = useState('');
+  const submit = () => {
+    if (text.trim()) { onAdd(text.trim()); setText(''); onClose(); }
+  };
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={atm.overlay} onPress={onClose} />
+      <View style={atm.box}>
+        <Text style={atm.title}>Filter by tag</Text>
+        <TextInput
+          style={atm.input}
+          value={text}
+          onChangeText={setText}
+          placeholder="Tag name…"
+          placeholderTextColor={C.textDim}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={submit}
+        />
+        <View style={atm.row}>
+          <Pressable style={atm.cancel} onPress={onClose}>
+            <Text style={atm.cancelText}>Cancel</Text>
+          </Pressable>
+          <Pressable style={atm.confirm} onPress={submit}>
+            <Text style={atm.confirmText}>Filter</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+const atm = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#00000088' },
+  box: {
+    position: 'absolute', left: 20, right: 20,
+    top: '38%',
+    backgroundColor: C.panel,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  title: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.textBright, marginBottom: 12 },
+  input: {
+    backgroundColor: C.bg, borderRadius: 10, borderWidth: 1, borderColor: C.border,
+    color: C.text, fontSize: 14, fontFamily: 'Inter_400Regular',
+    paddingHorizontal: 12, height: 44, marginBottom: 14,
+  },
+  row: { flexDirection: 'row', gap: 10 },
+  cancel: { flex: 1, height: 40, borderRadius: 10, backgroundColor: C.panelHigh, alignItems: 'center', justifyContent: 'center' },
+  cancelText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: C.textMuted },
+  confirm: { flex: 1, height: 40, borderRadius: 10, backgroundColor: C.accent, alignItems: 'center', justifyContent: 'center' },
+  confirmText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: C.textBright },
+});
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -226,6 +337,7 @@ export default function Dashboard() {
   const [view, setView] = useState<'cards' | 'table'>('cards');
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [addTagOpen, setAddTagOpen] = useState(false);
 
   const handleSort = useCallback((key: SortKey) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -252,18 +364,10 @@ export default function Dashboard() {
     list.sort((a, b) => {
       let cmp = 0;
       switch (sortKey) {
-        case 'name':
-          cmp = a.name.localeCompare(b.name);
-          break;
-        case 'trustLevel':
-          cmp = a.trustLevel - b.trustLevel;
-          break;
-        case 'lastMet':
-          cmp = (a.lastMet ?? '').localeCompare(b.lastMet ?? '');
-          break;
-        case 'notes':
-          cmp = notesCount(a) - notesCount(b);
-          break;
+        case 'name': cmp = a.name.localeCompare(b.name); break;
+        case 'trustLevel': cmp = a.trustLevel - b.trustLevel; break;
+        case 'lastMet': cmp = (a.lastMet ?? '').localeCompare(b.lastMet ?? ''); break;
+        case 'notes': cmp = notesCount(a) - notesCount(b); break;
       }
       return sortDir === 'asc' ? cmp : -cmp;
     });
@@ -285,7 +389,7 @@ export default function Dashboard() {
       {/* Header */}
       <View style={s.header}>
         <View>
-          <Text style={s.appName}>PEOPLE</Text>
+          <AppLogo />
           <Text style={s.count}>{people.length} {people.length === 1 ? 'person' : 'people'}</Text>
         </View>
         <View style={s.headerActions}>
@@ -320,35 +424,46 @@ export default function Dashboard() {
         )}
       </View>
 
-      {/* Tag Filters */}
-      {allTags.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.tagFilters}
+      {/* Tag Filters — always visible */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={s.tagFilters}
+        style={s.tagFiltersContainer}
+      >
+        <Pressable
+          style={[s.tagFilter, !activeTag && s.tagFilterActive]}
+          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTag(null); }}
         >
-          <Pressable
-            style={[s.tagFilter, !activeTag && s.tagFilterActive]}
-            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTag(null); }}
-          >
-            <Text style={[s.tagFilterText, !activeTag && s.tagFilterTextActive]}>All</Text>
-          </Pressable>
-          {allTags.map(t => {
-            const key = t.toLowerCase() as keyof typeof C.tag;
-            const colors = C.tag[key] ?? C.tag.custom;
-            const isActive = activeTag === t;
-            return (
-              <Pressable
-                key={t}
-                style={[s.tagFilter, isActive && { backgroundColor: colors.bg, borderColor: colors.text + '55' }]}
-                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTag(isActive ? null : t); }}
-              >
-                <Text style={[s.tagFilterText, isActive && { color: colors.text }]}>{t}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      )}
+          <Text style={[s.tagFilterText, !activeTag && s.tagFilterTextActive]}>All</Text>
+        </Pressable>
+        {allTags.map(t => {
+          const key = t.toLowerCase() as keyof typeof C.tag;
+          const colors = C.tag[key] ?? C.tag.custom;
+          const isActive = activeTag === t;
+          return (
+            <Pressable
+              key={t}
+              style={[s.tagFilter, isActive && { backgroundColor: colors.bg, borderColor: colors.text + '55' }]}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setActiveTag(isActive ? null : t); }}
+            >
+              <Text style={[s.tagFilterText, isActive && { color: colors.text }]}>{t}</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          style={s.tagFilterAdd}
+          onPress={() => setAddTagOpen(true)}
+        >
+          <Feather name="plus" size={14} color={C.textMuted} />
+        </Pressable>
+      </ScrollView>
+
+      <AddTagModal
+        visible={addTagOpen}
+        onClose={() => setAddTagOpen(false)}
+        onAdd={tag => { setActiveTag(tag); }}
+      />
 
       {/* Content */}
       {people.length === 0 ? (
@@ -378,9 +493,7 @@ export default function Dashboard() {
           showsVerticalScrollIndicator={false}
         />
       ) : (
-        /* ── TABLE VIEW ── */
         <View style={{ flex: 1 }}>
-          {/* Table Header */}
           <View style={[tbl.header, { marginHorizontal: 14 }]}>
             <SortHeader label="NAME" sortKey="name" current={sortKey} dir={sortDir} onPress={handleSort} flex={3} />
             <View style={{ flex: 2, paddingHorizontal: 6, paddingVertical: 8 }}>
@@ -439,8 +552,7 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
     paddingHorizontal: 18, paddingTop: 8, paddingBottom: 14,
   },
-  appName: { fontSize: 26, fontFamily: 'Inter_700Bold', color: C.textBright, letterSpacing: 4 },
-  count: { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textMuted, marginTop: 2 },
+  count: { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textMuted, marginTop: 4 },
   headerActions: { flexDirection: 'row', gap: 8 },
   iconBtn: {
     width: 38, height: 38, borderRadius: 11,
@@ -455,12 +567,34 @@ const s = StyleSheet.create({
     paddingHorizontal: 14, borderWidth: 1, borderColor: C.border, height: 44,
   },
   search: { flex: 1, color: C.text, fontSize: 14, fontFamily: 'Inter_400Regular', height: 44 },
-  tagFilters: { paddingHorizontal: 14, paddingBottom: 10, gap: 8, flexDirection: 'row' },
+  tagFiltersContainer: { flexGrow: 0, flexShrink: 0 },
+  tagFilters: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   tagFilter: {
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
-    backgroundColor: C.panel, borderWidth: 1, borderColor: C.border,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: C.panel,
+    borderWidth: 1,
+    borderColor: C.border,
   },
   tagFilterActive: { backgroundColor: C.accent + '22', borderColor: C.accent },
+  tagFilterAdd: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: C.panel,
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tagFilterText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.textMuted },
   tagFilterTextActive: { color: C.accent },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingBottom: 80 },
