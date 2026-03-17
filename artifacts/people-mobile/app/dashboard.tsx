@@ -489,7 +489,7 @@ export default function Dashboard() {
               onDelete={() => deletePerson(item.id)}
             />
           )}
-          contentContainerStyle={{ paddingTop: 6, paddingBottom: bottomPadding + 90 }}
+          contentContainerStyle={{ paddingTop: 2, paddingBottom: bottomPadding + 90 }}
           showsVerticalScrollIndicator={false}
         />
       ) : (
@@ -563,18 +563,18 @@ const s = StyleSheet.create({
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: C.panel, borderRadius: 12,
-    marginHorizontal: 14, marginBottom: 8,
+    marginHorizontal: 14, marginBottom: 4,
     paddingHorizontal: 14, borderWidth: 1, borderColor: C.border, height: 44,
   },
   search: { flex: 1, color: C.text, fontSize: 14, fontFamily: 'Inter_400Regular', height: 44 },
   tagFiltersContainer: { flexGrow: 0, flexShrink: 0 },
   tagFilters: {
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingTop: 2,
+    paddingBottom: 8,
     gap: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
   },
   tagFilter: {
     borderRadius: 20,
