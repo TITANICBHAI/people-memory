@@ -92,9 +92,10 @@ function PersonAvatar({ person, size = 44 }: { person: Person; size?: number }) 
     const preset = PRESET_AVATARS.find(a => a.id === id);
     if (preset) {
       return (
-        <View style={[av.wrap, { width: size, height: size, borderRadius: size / 2, backgroundColor: preset.bg, borderColor: color + '77' }]}>
-          <Text style={{ fontSize: size * 0.42 }}>{preset.icon}</Text>
-        </View>
+        <Image
+          source={{ uri: preset.uri }}
+          style={[av.photo, { width: size, height: size, borderRadius: size / 2, borderColor: color + '77' }]}
+        />
       );
     }
   }

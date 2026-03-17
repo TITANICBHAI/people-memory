@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PeopleMemory")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d368d7faadbf49da07383fc65177fc4b4137c988")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7c6d5a81114037a530c75195f939d883a4f73de1")]
 [assembly: System.Reflection.AssemblyProductAttribute("PeopleMemory")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PeopleMemory")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
