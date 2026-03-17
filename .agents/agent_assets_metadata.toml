@@ -20,22 +20,10 @@ type = "image"
 title = "Screenshot — Profile View (Marcus Webb, big client)"
 
 [[outputs]]
-id = "VemfnBjvfAW6VvoiU_t_K"
-uri = "file://artifacts/people-mobile/assets/screenshots/ss4-avatar.png"
-type = "image"
-title = "Screenshot 4 — Avatar Picker"
-
-[[outputs]]
 id = "W8etcDCpiiwAsO41vjLlG"
 uri = "file://artifacts/people-mobile/assets/screenshots/ss5-tutorial.png"
 type = "image"
 title = "Screenshot 5 — Onboarding Tutorial"
-
-[[outputs]]
-id = "Bkb4_Fb_yo6oJt3SyvAcB"
-uri = "file://artifacts/people-mobile/assets/images/icon.png"
-type = "image"
-title = "App Icon — People Connection"
 
 [[outputs]]
 id = "-QZ-ouXyent3QOmILO4cq"
