@@ -1,9 +1,11 @@
 import { Feather } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -18,7 +20,11 @@ import { AvatarPicker, AvatarValue } from '@/components/AvatarPicker';
 import C from '@/constants/colors';
 import { Person, PersonDate, useApp } from '@/context/AppContext';
 import {
+  cancelBirthdayNotification,
+  cancelCustomDateNotification,
   cancelNextMeetingNotification,
+  scheduleBirthdayNotification,
+  scheduleCustomDateNotification,
   scheduleNextMeetingNotification,
 } from '@/utils/notifications';
 
@@ -75,6 +81,129 @@ const fi = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 12, height: 48,
   },
   multi: { height: 80, lineHeight: 20 },
+});
+
+function formatDateDisplay(v?: string): string {
+  if (!v) return 'Tap to set date';
+  const d = new Date(v + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function dateToString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function DatePickerField({ label, value, onChange, hint, rightSlot }: {
+  label: string;
+  value?: string;
+  onChange: (v?: string) => void;
+  hint?: string;
+  rightSlot?: React.ReactNode;
+}) {
+  const [show, setShow] = useState(false);
+  const dateObj = value ? new Date(value + 'T00:00:00') : new Date();
+
+  const handleChange = (_: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') setShow(false);
+    if (selectedDate) {
+      onChange(dateToString(selectedDate));
+    }
+  };
+
+  return (
+    <View style={dpf.wrap}>
+      <View style={dpf.labelRow}>
+        <FieldLabel text={label} />
+        <View style={dpf.labelRight}>
+          {hint ? <Text style={fi.hint}>{hint}</Text> : null}
+          {rightSlot}
+          {value ? (
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onChange(undefined); }}
+              hitSlop={8}
+            >
+              <Feather name="x" size={14} color={C.red} />
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+      <Pressable
+        style={dpf.button}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShow(true); }}
+      >
+        <Feather name="calendar" size={15} color={value ? C.accent : C.textDim} />
+        <Text style={[dpf.buttonText, !value && dpf.buttonTextEmpty]}>
+          {formatDateDisplay(value)}
+        </Text>
+      </Pressable>
+
+      {show && Platform.OS === 'ios' && (
+        <Modal transparent animationType="slide" visible={show} onRequestClose={() => setShow(false)}>
+          <Pressable style={dpf.overlay} onPress={() => setShow(false)} />
+          <View style={dpf.sheet}>
+            <View style={dpf.sheetHeader}>
+              <Pressable onPress={() => { onChange(undefined); setShow(false); }}>
+                <Text style={dpf.sheetClear}>Clear</Text>
+              </Pressable>
+              <Pressable onPress={() => setShow(false)}>
+                <Text style={dpf.sheetDone}>Done</Text>
+              </Pressable>
+            </View>
+            <DateTimePicker
+              value={dateObj}
+              mode="date"
+              display="spinner"
+              onChange={handleChange}
+              themeVariant="dark"
+              style={{ width: '100%' }}
+            />
+          </View>
+        </Modal>
+      )}
+
+      {show && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={dateObj}
+          mode="date"
+          display="default"
+          onChange={handleChange}
+        />
+      )}
+    </View>
+  );
+}
+
+const dpf = StyleSheet.create({
+  wrap: { marginBottom: 18 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  labelRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  button: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+    paddingHorizontal: 14, height: 48,
+  },
+  buttonText: { fontSize: 15, fontFamily: 'Inter_400Regular', color: C.text },
+  buttonTextEmpty: { color: C.textDim },
+  overlay: { flex: 1, backgroundColor: '#00000066' },
+  sheet: {
+    backgroundColor: C.panel,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 32,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  sheetClear: { fontSize: 16, fontFamily: 'Inter_400Regular', color: C.red },
+  sheetDone: { fontSize: 16, fontFamily: 'Inter_600SemiBold', color: C.accent },
 });
 
 function TagsEditor({ tags, onAdd, onRemove }: { tags: string[]; onAdd: (t: string) => void; onRemove: (t: string) => void }) {
@@ -202,9 +331,20 @@ function DatesSection({
 }) {
   const [open, setOpen] = useState(false);
   const [newLabel, setNewLabel] = useState('');
-  const [newDate, setNewDate] = useState('');
+  const [newCustomDate, setNewCustomDate] = useState<string | undefined>();
+  const [newReminder, setNewReminder] = useState(false);
+  const [showCustomPicker, setShowCustomPicker] = useState(false);
 
   const hasDates = !!(birthday || firstMet || lastMet || nextMeeting || customDates.length > 0);
+
+  const handleAddCustom = () => {
+    if (newLabel.trim() && newCustomDate) {
+      onCustomDates([...customDates, { id: uid(), label: newLabel.trim(), date: newCustomDate, reminder: newReminder }]);
+      setNewLabel('');
+      setNewCustomDate(undefined);
+      setNewReminder(false);
+    }
+  };
 
   return (
     <View style={ds.wrap}>
@@ -222,31 +362,45 @@ function DatesSection({
 
       {open && (
         <View style={ds.body}>
-          <Field label="Birthday" value={birthday ?? ''} onChange={v => onBirthday(v || undefined)} placeholder="YYYY-MM-DD" hint="optional" />
-          <Field label="First Met" value={firstMet ?? ''} onChange={v => onFirstMet(v || undefined)} placeholder="YYYY-MM-DD" hint="optional" />
-          <Field label="Last Met" value={lastMet ?? ''} onChange={v => onLastMet(v || undefined)} placeholder="YYYY-MM-DD" hint="optional" />
+          <DatePickerField
+            label="Birthday"
+            value={birthday}
+            onChange={onBirthday}
+            hint="annual reminder"
+          />
+          <DatePickerField
+            label="First Met"
+            value={firstMet}
+            onChange={onFirstMet}
+            hint="optional"
+          />
+          <DatePickerField
+            label="Last Met"
+            value={lastMet}
+            onChange={onLastMet}
+            hint="optional"
+          />
 
           <View style={ds.nextMeetWrap}>
-            <FieldLabel text="Next Meeting" />
-            <View style={ds.nextMeetRow}>
-              <TextInput
-                style={[fi.input, { flex: 1 }]}
-                value={nextMeeting ?? ''}
-                onChangeText={v => onNextMeeting(v || undefined)}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={C.textDim}
-              />
-              {nextMeeting ? (
+            <DatePickerField
+              label="Next Meeting"
+              value={nextMeeting}
+              onChange={v => { onNextMeeting(v); if (!v) onNextMeetingTime(undefined); }}
+              hint="optional"
+            />
+            {nextMeeting ? (
+              <View style={ds.timeRow}>
+                <Feather name="clock" size={14} color={C.textDim} />
                 <TextInput
-                  style={[fi.input, { width: 110 }]}
+                  style={ds.timeInput}
                   value={nextMeetingTime ?? ''}
                   onChangeText={v => onNextMeetingTime(v || undefined)}
-                  placeholder="HH:MM"
+                  placeholder="HH:MM  (for reminder)"
                   placeholderTextColor={C.textDim}
                   keyboardType="numbers-and-punctuation"
                 />
-              ) : null}
-            </View>
+              </View>
+            ) : null}
             {nextMeeting && nextMeetingTime ? (
               <View style={ds.notifHint}>
                 <Feather name="bell" size={12} color={C.green} />
@@ -265,14 +419,27 @@ function DatesSection({
             <View key={d.id} style={ds.item}>
               <View style={ds.itemText}>
                 <Text style={ds.itemLabel}>{d.label}</Text>
-                <Text style={ds.itemDate}>{d.date}</Text>
+                <Text style={ds.itemDate}>{formatDateDisplay(d.date)}</Text>
               </View>
-              <Pressable onPress={() => onCustomDates(customDates.filter(x => x.id !== d.id))}>
-                <Feather name="x" size={16} color={C.red} />
-              </Pressable>
+              <View style={ds.itemActions}>
+                <Pressable
+                  style={[ds.bellBtn, d.reminder && ds.bellBtnOn]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onCustomDates(customDates.map(x => x.id === d.id ? { ...x, reminder: !x.reminder } : x));
+                  }}
+                  hitSlop={6}
+                >
+                  <Feather name={d.reminder ? 'bell' : 'bell-off'} size={14} color={d.reminder ? C.accent : C.textDim} />
+                </Pressable>
+                <Pressable onPress={() => onCustomDates(customDates.filter(x => x.id !== d.id))} hitSlop={6}>
+                  <Feather name="x" size={16} color={C.red} />
+                </Pressable>
+              </View>
             </View>
           ))}
-          <View style={ds.addRow}>
+
+          <View style={ds.addCustomWrap}>
             <TextInput
               style={[ds.smallInput, { flex: 1 }]}
               value={newLabel}
@@ -280,25 +447,62 @@ function DatesSection({
               placeholder="Event name…"
               placeholderTextColor={C.textDim}
             />
-            <TextInput
-              style={[ds.smallInput, { width: 120 }]}
-              value={newDate}
-              onChangeText={setNewDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={C.textDim}
-            />
             <Pressable
-              style={ds.addBtn}
-              onPress={() => {
-                if (newLabel.trim() && newDate.trim()) {
-                  onCustomDates([...customDates, { id: uid(), label: newLabel.trim(), date: newDate.trim() }]);
-                  setNewLabel(''); setNewDate('');
-                }
-              }}
+              style={[ds.datePickBtn, newCustomDate && ds.datePickBtnSet]}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowCustomPicker(true); }}
+            >
+              <Feather name="calendar" size={14} color={newCustomDate ? C.accent : C.textDim} />
+              <Text style={[ds.datePickBtnText, !newCustomDate && { color: C.textDim }]}>
+                {newCustomDate ? newCustomDate : 'Date'}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[ds.bellBtn, newReminder && ds.bellBtnOn]}
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setNewReminder(r => !r); }}
+              hitSlop={6}
+            >
+              <Feather name={newReminder ? 'bell' : 'bell-off'} size={15} color={newReminder ? C.accent : C.textDim} />
+            </Pressable>
+            <Pressable
+              style={[ds.addBtn, !(newLabel.trim() && newCustomDate) && { opacity: 0.4 }]}
+              onPress={handleAddCustom}
+              disabled={!(newLabel.trim() && newCustomDate)}
             >
               <Feather name="plus" size={18} color={C.accent} />
             </Pressable>
           </View>
+
+          {showCustomPicker && Platform.OS === 'ios' && (
+            <Modal transparent animationType="slide" visible={showCustomPicker} onRequestClose={() => setShowCustomPicker(false)}>
+              <Pressable style={dpf.overlay} onPress={() => setShowCustomPicker(false)} />
+              <View style={dpf.sheet}>
+                <View style={dpf.sheetHeader}>
+                  <Pressable onPress={() => { setNewCustomDate(undefined); setShowCustomPicker(false); }}>
+                    <Text style={dpf.sheetClear}>Clear</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setShowCustomPicker(false)}>
+                    <Text style={dpf.sheetDone}>Done</Text>
+                  </Pressable>
+                </View>
+                <DateTimePicker
+                  value={newCustomDate ? new Date(newCustomDate + 'T00:00:00') : new Date()}
+                  mode="date"
+                  display="spinner"
+                  onChange={(_, d) => { if (d) setNewCustomDate(dateToString(d)); }}
+                  themeVariant="dark"
+                  style={{ width: '100%' }}
+                />
+              </View>
+            </Modal>
+          )}
+          {showCustomPicker && Platform.OS === 'android' && (
+            <DateTimePicker
+              value={newCustomDate ? new Date(newCustomDate + 'T00:00:00') : new Date()}
+              mode="date"
+              display="default"
+              onChange={(_, d) => { setShowCustomPicker(false); if (d) setNewCustomDate(dateToString(d)); }}
+            />
+          )}
         </View>
       )}
     </View>
@@ -317,8 +521,13 @@ const ds = StyleSheet.create({
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.accent },
   body: { marginTop: 10, gap: 0 },
   nextMeetWrap: { marginBottom: 18 },
-  nextMeetRow: { flexDirection: 'row', gap: 8 },
-  notifHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  timeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+    paddingHorizontal: 14, height: 44, marginTop: -8, marginBottom: 6,
+  },
+  timeInput: { flex: 1, color: C.text, fontSize: 14, fontFamily: 'Inter_400Regular' },
+  notifHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   notifHintText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.green },
   item: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -328,9 +537,19 @@ const ds = StyleSheet.create({
   itemText: { gap: 2 },
   itemLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.text },
   itemDate: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textMuted },
-  addRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 6 },
+  addCustomWrap: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 6 },
   smallInput: { backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border, color: C.text, fontSize: 13, fontFamily: 'Inter_400Regular', paddingHorizontal: 12, height: 44 },
+  datePickBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border,
+    paddingHorizontal: 10, height: 44,
+  },
+  datePickBtnSet: { borderColor: C.accent },
+  datePickBtnText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.accent },
   addBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+  itemActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  bellBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: C.panel, borderWidth: 1, borderColor: C.border },
+  bellBtnOn: { borderColor: C.accent, backgroundColor: C.accent + '22' },
 });
 
 export default function EditScreen() {
@@ -368,6 +587,24 @@ export default function EditScreen() {
         await scheduleNextMeetingNotification(form.id, form.name.trim(), form.nextMeeting, form.nextMeetingTime);
       } else {
         await cancelNextMeetingNotification(form.id);
+      }
+
+      if (form.birthday) {
+        await scheduleBirthdayNotification(form.id, form.name.trim(), form.birthday);
+      } else {
+        await cancelBirthdayNotification(form.id);
+      }
+
+      const currentIds = new Set(form.customDates.map(d => d.id));
+      for (const d of (person?.customDates ?? [])) {
+        if (!currentIds.has(d.id)) await cancelCustomDateNotification(form.id, d.id);
+      }
+      for (const d of form.customDates) {
+        if (d.reminder) {
+          await scheduleCustomDateNotification(form.id, form.name.trim(), d.id, d.label, d.date);
+        } else {
+          await cancelCustomDateNotification(form.id, d.id);
+        }
       }
 
       router.replace({ pathname: '/profile/[id]', params: { id: form.id } });

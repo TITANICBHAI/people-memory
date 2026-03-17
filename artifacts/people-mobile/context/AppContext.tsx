@@ -15,6 +15,7 @@ export interface PersonDate {
   id: string;
   date: string;
   label: string;
+  reminder?: boolean;
 }
 
 export interface Person {
