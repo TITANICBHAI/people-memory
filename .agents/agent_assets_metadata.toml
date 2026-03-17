@@ -17,19 +17,13 @@ title = "Screenshot — Add Person (Marcus Webb, filled in)"
 id = "WlzKLzzf0hei1enAVa1A4"
 uri = "file://artifacts/people-mobile/assets/screenshots/ss3-profile.png"
 type = "image"
-title = "Screenshot — Profile View (Marcus Webb, big client)"
+title = "Profile view"
 
 [[outputs]]
 id = "W8etcDCpiiwAsO41vjLlG"
 uri = "file://artifacts/people-mobile/assets/screenshots/ss5-tutorial.png"
 type = "image"
 title = "Screenshot 5 — Onboarding Tutorial"
-
-[[outputs]]
-id = "-QZ-ouXyent3QOmILO4cq"
-uri = "file://artifacts/people-mobile/assets/images/splash-icon.png"
-type = "image"
-title = "Splash Screen Icon"
 
 [[outputs]]
 id = "LUMIIwk4Smmvc7nM_mnI4"

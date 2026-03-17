@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 
-import C from '@/constants/colors';
+import C, { avatarColorForName } from '@/constants/colors';
 
 export const PRESET_AVATARS = [
   { id: 'a1',  bg: '#1C3247', icon: '🧑🏻', label: 'Light' },
@@ -65,9 +65,10 @@ export function AvatarDisplay({ value, name, size = 72 }: { value: AvatarValue; 
     }
   }
 
+  const colors = avatarColorForName(name);
   return (
-    <View style={[ad.initials, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={[ad.initialsText, { fontSize: size * 0.35 }]}>{initials}</Text>
+    <View style={[ad.initials, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.bg, borderColor: colors.text + '66' }]}>
+      <Text style={[ad.initialsText, { fontSize: size * 0.35, color: colors.text }]}>{initials}</Text>
     </View>
   );
 }
@@ -75,8 +76,8 @@ export function AvatarDisplay({ value, name, size = 72 }: { value: AvatarValue; 
 const ad = StyleSheet.create({
   photo: { borderWidth: 2, borderColor: C.accent + '77' },
   preset: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: C.border },
-  initials: { backgroundColor: C.header, borderWidth: 2, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
-  initialsText: { fontFamily: 'Inter_700Bold', color: C.text },
+  initials: { borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  initialsText: { fontFamily: 'Inter_700Bold' },
 });
 
 export function AvatarPicker({ value, onChange, name, size = 72 }: Props) {
@@ -129,11 +130,16 @@ export function AvatarPicker({ value, onChange, name, size = 72 }: Props) {
               style={[m.gridItem, value.type === 'initials' && m.gridItemActive]}
               onPress={() => { onChange({ type: 'initials' }); setOpen(false); }}
             >
-              <View style={[m.initialsPreview]}>
-                <Text style={m.initialsPreviewText}>
-                  {name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?'}
-                </Text>
-              </View>
+              {(() => {
+                const nc = avatarColorForName(name);
+                return (
+                  <View style={[m.initialsPreview, { backgroundColor: nc.bg, borderColor: nc.text + '66' }]}>
+                    <Text style={[m.initialsPreviewText, { color: nc.text }]}>
+                      {name.split(' ').slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || '?'}
+                    </Text>
+                  </View>
+                );
+              })()}
               <Text style={m.gridLabel}>Initials</Text>
             </Pressable>
 
@@ -201,11 +207,10 @@ const m = StyleSheet.create({
   gridItemActive: { borderColor: C.accent, backgroundColor: C.accent + '15' },
   initialsPreview: {
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: C.header,
-    borderWidth: 2, borderColor: C.border,
+    borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  initialsPreviewText: { fontSize: 18, fontFamily: 'Inter_700Bold', color: C.text },
+  initialsPreviewText: { fontSize: 18, fontFamily: 'Inter_700Bold' },
   presetPreview: {
     width: 56, height: 56, borderRadius: 28,
     borderWidth: 2, borderColor: C.border,

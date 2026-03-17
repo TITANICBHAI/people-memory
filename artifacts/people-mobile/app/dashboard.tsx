@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PRESET_AVATARS } from '@/components/AvatarPicker';
 import Tutorial from '@/components/Tutorial';
-import C from '@/constants/colors';
+import C, { avatarColorForName } from '@/constants/colors';
 import { Person, useApp } from '@/context/AppContext';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -100,16 +100,17 @@ function PersonAvatar({ person, size = 44 }: { person: Person; size?: number }) 
     );
   }
 
+  const nameColors = avatarColorForName(person.name);
   return (
-    <View style={[av.wrap, { width: size, height: size, borderRadius: size / 2, borderColor: color + '77' }]}>
-      <Text style={[av.text, { fontSize: size * 0.35 }]}>{initials}</Text>
+    <View style={[av.wrap, { width: size, height: size, borderRadius: size / 2, backgroundColor: nameColors.bg, borderColor: nameColors.text + '77' }]}>
+      <Text style={[av.text, { fontSize: size * 0.35, color: nameColors.text }]}>{initials}</Text>
     </View>
   );
 }
 const av = StyleSheet.create({
-  wrap: { backgroundColor: C.header, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  wrap: { borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   photo: { borderWidth: 2 },
-  text: { fontFamily: 'Inter_700Bold', color: C.text },
+  text: { fontFamily: 'Inter_700Bold' },
 });
 
 // ─── Sort Header Cell ─────────────────────────────────────────────────────────
