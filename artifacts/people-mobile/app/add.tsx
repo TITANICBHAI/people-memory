@@ -16,7 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AvatarPicker, AvatarValue } from '@/components/AvatarPicker';
 import C from '@/constants/colors';
-import { Person, useApp } from '@/context/AppContext';
+import { Person, PersonDate, useApp } from '@/context/AppContext';
+import { scheduleNextMeetingNotification } from '@/utils/notifications';
 
 const PRESET_TAGS = ['Friend', 'Work', 'Family', 'Online'];
 
@@ -232,6 +233,118 @@ const ts = StyleSheet.create({
   levelText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
 });
 
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 9); }
+
+function DatesSection({
+  birthday, firstMet, lastMet, nextMeeting, nextMeetingTime, customDates,
+  onBirthday, onFirstMet, onLastMet, onNextMeeting, onNextMeetingTime, onCustomDates,
+}: {
+  birthday?: string; firstMet?: string; lastMet?: string;
+  nextMeeting?: string; nextMeetingTime?: string; customDates: PersonDate[];
+  onBirthday: (v?: string) => void; onFirstMet: (v?: string) => void;
+  onLastMet: (v?: string) => void; onNextMeeting: (v?: string) => void;
+  onNextMeetingTime: (v?: string) => void; onCustomDates: (d: PersonDate[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const [newDate, setNewDate] = useState('');
+  const hasDates = !!(birthday || firstMet || lastMet || nextMeeting || customDates.length > 0);
+
+  return (
+    <View style={ds.wrap}>
+      <Pressable
+        style={ds.header}
+        onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setOpen(o => !o); }}
+      >
+        <View style={ds.headerLeft}>
+          <Feather name="calendar" size={15} color={C.accent} />
+          <Text style={ds.headerText}>Dates & Meetings</Text>
+          {hasDates && <View style={ds.dot} />}
+        </View>
+        <Feather name={open ? 'chevron-up' : 'chevron-down'} size={18} color={C.textMuted} />
+      </Pressable>
+
+      {open && (
+        <View style={ds.body}>
+          <View style={ds.dateField}>
+            <Text style={ds.dateLabel}>BIRTHDAY</Text>
+            <TextInput style={ds.dateInput} value={birthday ?? ''} onChangeText={v => onBirthday(v || undefined)} placeholder="YYYY-MM-DD" placeholderTextColor={C.textDim} />
+          </View>
+          <View style={ds.dateField}>
+            <Text style={ds.dateLabel}>FIRST MET</Text>
+            <TextInput style={ds.dateInput} value={firstMet ?? ''} onChangeText={v => onFirstMet(v || undefined)} placeholder="YYYY-MM-DD" placeholderTextColor={C.textDim} />
+          </View>
+          <View style={ds.dateField}>
+            <Text style={ds.dateLabel}>LAST MET</Text>
+            <TextInput style={ds.dateInput} value={lastMet ?? ''} onChangeText={v => onLastMet(v || undefined)} placeholder="YYYY-MM-DD" placeholderTextColor={C.textDim} />
+          </View>
+
+          <View style={ds.nextMeetWrap}>
+            <Text style={ds.dateLabel}>NEXT MEETING</Text>
+            <View style={ds.nextMeetRow}>
+              <TextInput style={[ds.dateInput, { flex: 1 }]} value={nextMeeting ?? ''} onChangeText={v => onNextMeeting(v || undefined)} placeholder="YYYY-MM-DD" placeholderTextColor={C.textDim} />
+              {nextMeeting ? (
+                <TextInput style={[ds.dateInput, { width: 110 }]} value={nextMeetingTime ?? ''} onChangeText={v => onNextMeetingTime(v || undefined)} placeholder="HH:MM" placeholderTextColor={C.textDim} keyboardType="numbers-and-punctuation" />
+              ) : null}
+            </View>
+            {nextMeeting && nextMeetingTime ? (
+              <View style={ds.notifHint}>
+                <Feather name="bell" size={12} color={C.green} />
+                <Text style={ds.notifHintText}>Reminder will be set for this meeting</Text>
+              </View>
+            ) : nextMeeting ? (
+              <View style={ds.notifHint}>
+                <Feather name="bell-off" size={12} color={C.textDim} />
+                <Text style={[ds.notifHintText, { color: C.textDim }]}>Add a time to enable reminder</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={ds.dateLabel}>CUSTOM EVENTS</Text>
+          {customDates.map(d => (
+            <View key={d.id} style={ds.item}>
+              <View>
+                <Text style={ds.itemLabel}>{d.label}</Text>
+                <Text style={ds.itemDate}>{d.date}</Text>
+              </View>
+              <Pressable onPress={() => onCustomDates(customDates.filter(x => x.id !== d.id))}>
+                <Feather name="x" size={16} color={C.red} />
+              </Pressable>
+            </View>
+          ))}
+          <View style={ds.addRow}>
+            <TextInput style={[ds.dateInput, { flex: 1 }]} value={newLabel} onChangeText={setNewLabel} placeholder="Event name…" placeholderTextColor={C.textDim} />
+            <TextInput style={[ds.dateInput, { width: 120 }]} value={newDate} onChangeText={setNewDate} placeholder="YYYY-MM-DD" placeholderTextColor={C.textDim} />
+            <Pressable style={ds.addBtn} onPress={() => { if (newLabel.trim() && newDate.trim()) { onCustomDates([...customDates, { id: uid(), label: newLabel.trim(), date: newDate.trim() }]); setNewLabel(''); setNewDate(''); } }}>
+              <Feather name="plus" size={18} color={C.accent} />
+            </Pressable>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+const ds = StyleSheet.create({
+  wrap: { marginBottom: 18 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.panel, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: C.border },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: C.text },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.accent },
+  body: { marginTop: 10 },
+  dateField: { marginBottom: 12 },
+  dateLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: C.textMuted, letterSpacing: 2, marginBottom: 6 },
+  dateInput: { backgroundColor: C.panel, borderRadius: 12, borderWidth: 1, borderColor: C.border, color: C.text, fontSize: 14, fontFamily: 'Inter_400Regular', paddingHorizontal: 14, height: 46 },
+  nextMeetWrap: { marginBottom: 12 },
+  nextMeetRow: { flexDirection: 'row', gap: 8 },
+  notifHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  notifHintText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.green },
+  item: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.panel, borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: C.border },
+  itemLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', color: C.text },
+  itemDate: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.textMuted, marginTop: 2 },
+  addRow: { flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 6 },
+  addBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: C.panel, borderWidth: 1, borderColor: C.border, alignItems: 'center', justifyContent: 'center' },
+});
+
 type FormData = Omit<Person, 'id' | 'createdAt' | 'updatedAt'>;
 
 const blank: FormData = {
@@ -244,6 +357,7 @@ const blank: FormData = {
   dislikes: '',
   thingsToRemember: '',
   quickFacts: '',
+  nextMeetingTime: undefined,
   customDates: [],
 };
 
@@ -278,6 +392,9 @@ export default function AddScreen() {
     try {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const person = await addPerson({ ...form, name: form.name.trim() });
+      if (form.nextMeeting && form.nextMeetingTime) {
+        await scheduleNextMeetingNotification(person.id, form.name.trim(), form.nextMeeting, form.nextMeetingTime);
+      }
       router.replace({ pathname: '/profile/[id]', params: { id: person.id } });
     } catch {
       Alert.alert('Error', 'Failed to save. Please try again.');
@@ -335,6 +452,21 @@ export default function AddScreen() {
         <Field label="Dislikes" value={form.dislikes} onChange={v => set('dislikes', v)} multiline placeholder="Pet peeves, avoidances…" />
         <Field label="Things to Remember" value={form.thingsToRemember} onChange={v => set('thingsToRemember', v)} multiline placeholder="Key reminders, sensitive info…" />
         <Field label="Quick Facts" value={form.quickFacts} onChange={v => set('quickFacts', v)} multiline placeholder="Job, city, how you know them…" />
+
+        <DatesSection
+          birthday={form.birthday}
+          firstMet={form.firstMet}
+          lastMet={form.lastMet}
+          nextMeeting={form.nextMeeting}
+          nextMeetingTime={form.nextMeetingTime}
+          customDates={form.customDates}
+          onBirthday={v => set('birthday', v)}
+          onFirstMet={v => set('firstMet', v)}
+          onLastMet={v => set('lastMet', v)}
+          onNextMeeting={v => set('nextMeeting', v)}
+          onNextMeetingTime={v => set('nextMeetingTime', v)}
+          onCustomDates={d => set('customDates', d)}
+        />
       </KeyboardAwareScrollView>
     </View>
   );

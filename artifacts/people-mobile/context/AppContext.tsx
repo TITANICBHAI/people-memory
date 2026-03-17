@@ -32,6 +32,7 @@ export interface Person {
   firstMet?: string;
   lastMet?: string;
   nextMeeting?: string;
+  nextMeetingTime?: string;
   customDates: PersonDate[];
   createdAt: string;
   updatedAt: string;

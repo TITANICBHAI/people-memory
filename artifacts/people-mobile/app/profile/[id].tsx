@@ -129,11 +129,11 @@ export default function ProfileScreen() {
   };
 
   const allDates = [
-    ...(person.birthday ? [{ date: person.birthday, label: 'Birthday' }] : []),
-    ...(person.firstMet ? [{ date: person.firstMet, label: 'First met' }] : []),
-    ...(person.lastMet ? [{ date: person.lastMet, label: 'Last met' }] : []),
-    ...(person.nextMeeting ? [{ date: person.nextMeeting, label: 'Next meeting' }] : []),
-    ...person.customDates.map(d => ({ date: d.date, label: d.label })),
+    ...(person.birthday ? [{ date: person.birthday, label: 'Birthday', extra: undefined as string | undefined }] : []),
+    ...(person.firstMet ? [{ date: person.firstMet, label: 'First met', extra: undefined }] : []),
+    ...(person.lastMet ? [{ date: person.lastMet, label: 'Last met', extra: undefined }] : []),
+    ...(person.nextMeeting ? [{ date: person.nextMeeting, label: 'Next meeting', extra: person.nextMeetingTime }] : []),
+    ...person.customDates.map(d => ({ date: d.date, label: d.label, extra: undefined })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
@@ -230,7 +230,15 @@ export default function ProfileScreen() {
                 <View style={tl.dot} />
                 <View style={tl.content}>
                   <Text style={tl.dateLabel}>{d.label}</Text>
-                  <Text style={tl.date}>{formatDate(d.date)}</Text>
+                  <Text style={tl.date}>
+                    {formatDate(d.date)}{d.extra ? `  ·  ${d.extra}` : ''}
+                  </Text>
+                  {d.extra && (
+                    <View style={tl.bellRow}>
+                      <Feather name="bell" size={11} color={C.green} />
+                      <Text style={tl.bellText}>Reminder set</Text>
+                    </View>
+                  )}
                 </View>
               </View>
             ))}
@@ -252,6 +260,8 @@ const tl = StyleSheet.create({
   content: { flex: 1 },
   dateLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: C.text },
   date: { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textMuted, marginTop: 2 },
+  bellRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  bellText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: C.green },
 });
 
 const s = StyleSheet.create({
