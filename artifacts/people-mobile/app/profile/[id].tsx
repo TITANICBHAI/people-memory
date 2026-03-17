@@ -23,73 +23,20 @@ function photoUriToAvatarValue(uri?: string): AvatarValue {
   return { type: 'photo', photoUri: uri };
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <View style={sec.wrap}>
-      <Text style={sec.title}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-const sec = StyleSheet.create({
-  wrap: { marginBottom: 20 },
-  title: {
-    fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-    color: C.textMuted,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-    paddingHorizontal: 16,
-  },
-});
-
-function InfoCard({ children }: { children: React.ReactNode }) {
-  return <View style={ic.wrap}>{children}</View>;
-}
-const ic = StyleSheet.create({
-  wrap: {
-    backgroundColor: C.panel,
-    borderRadius: 14,
-    padding: 14,
-    marginHorizontal: 16,
-    borderWidth: 1,
-    borderColor: C.border,
-    gap: 12,
-  },
-});
-
-function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
-  return (
-    <View style={ir.row}>
-      <Feather name={icon as any} size={15} color={C.accent} style={ir.icon} />
-      <View style={ir.text}>
-        <Text style={ir.label}>{label}</Text>
-        <Text style={ir.value}>{value}</Text>
-      </View>
-    </View>
-  );
-}
-const ir = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  icon: { marginTop: 1 },
-  text: { flex: 1 },
-  label: { fontSize: 10, fontFamily: 'Inter_500Medium', color: C.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 },
-  value: { fontSize: 14, fontFamily: 'Inter_400Regular', color: C.text, lineHeight: 20 },
-});
-
 function TagChip({ tag }: { tag: string }) {
   const key = tag.toLowerCase() as keyof typeof C.tag;
   const colors = C.tag[key] ?? C.tag.custom;
   return (
     <View style={[tg.wrap, { backgroundColor: colors.bg }]}>
+      <Text style={tg.diamond}>◆</Text>
       <Text style={[tg.text, { color: colors.text }]}>{tag}</Text>
     </View>
   );
 }
 const tg = StyleSheet.create({
-  wrap: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  text: { fontSize: 12, fontFamily: 'Inter_500Medium', textTransform: 'uppercase', letterSpacing: 0.5 },
+  wrap: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  diamond: { fontSize: 8, color: '#4A9EFF' },
+  text: { fontSize: 12, fontFamily: 'Inter_500Medium', letterSpacing: 0.3 },
 });
 
 function TrustBar({ level }: { level: number }) {
@@ -97,23 +44,43 @@ function TrustBar({ level }: { level: number }) {
   const label = level <= 3 ? 'Low Trust' : level <= 6 ? 'Moderate Trust' : 'High Trust';
   return (
     <View style={tr.wrap}>
-      <View style={tr.barBg}>
-        <View style={[tr.barFill, { width: `${level * 10}%` as any, backgroundColor: color }]} />
-      </View>
-      <View style={tr.meta}>
-        <Text style={[tr.level, { color }]}>{level} / 10</Text>
-        <Text style={tr.label}>{label}</Text>
+      <Text style={tr.heading}>Trust Level</Text>
+      <View style={tr.row}>
+        <View style={tr.barBg}>
+          <View style={[tr.barFill, { width: `${level * 10}%` as any, backgroundColor: color }]} />
+        </View>
+        <Text style={[tr.label, { color }]}>{label}</Text>
       </View>
     </View>
   );
 }
 const tr = StyleSheet.create({
-  wrap: { gap: 8, paddingHorizontal: 16 },
-  barBg: { height: 6, backgroundColor: C.border, borderRadius: 3, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 3 },
-  meta: { flexDirection: 'row', justifyContent: 'space-between' },
-  level: { fontSize: 14, fontFamily: 'Inter_700Bold' },
-  label: { fontSize: 13, fontFamily: 'Inter_400Regular', color: C.textMuted },
+  wrap: { paddingHorizontal: 16, marginBottom: 20 },
+  heading: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: C.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  barBg: { flex: 1, height: 8, backgroundColor: C.border, borderRadius: 4, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 4 },
+  label: { fontSize: 13, fontFamily: 'Inter_600SemiBold', minWidth: 80, textAlign: 'right' },
+});
+
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={sc.wrap}>
+      <Text style={sc.title}>{title}</Text>
+      <View style={sc.card}>{children}</View>
+    </View>
+  );
+}
+const sc = StyleSheet.create({
+  wrap: { marginHorizontal: 16, marginBottom: 12 },
+  title: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: C.textMuted, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 },
+  card: {
+    backgroundColor: C.panel,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
 });
 
 function formatDate(s?: string) {
@@ -141,8 +108,6 @@ export default function ProfileScreen() {
       </View>
     );
   }
-
-  const trustColor = person.trustLevel <= 3 ? C.red : person.trustLevel <= 6 ? C.yellow : C.green;
 
   const handleDelete = () => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -174,17 +139,17 @@ export default function ProfileScreen() {
   return (
     <View style={[s.root, { paddingTop: insets.top + (Platform.OS === 'web' ? 67 : 0) }]}>
       <View style={s.navbar}>
-        <Pressable style={s.backBtn} onPress={() => router.back()}>
+        <Pressable style={s.navIconBtn} onPress={() => router.back()}>
           <Feather name="arrow-left" size={20} color={C.text} />
         </Pressable>
         <View style={s.navActions}>
           <Pressable
-            style={s.navBtn}
+            style={s.navIconBtn}
             onPress={() => router.push({ pathname: '/edit/[id]', params: { id: person.id } })}
           >
             <Feather name="edit-2" size={18} color={C.accent} />
           </Pressable>
-          <Pressable style={[s.navBtn, s.deleteBtn]} onPress={handleDelete}>
+          <Pressable style={[s.navIconBtn, s.deleteBtn]} onPress={handleDelete}>
             <Feather name="trash-2" size={18} color={C.red} />
           </Pressable>
         </View>
@@ -194,74 +159,80 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
       >
+        {/* Hero: Avatar left, Name + Tags right */}
         <View style={s.hero}>
-          <AvatarDisplay
-            value={photoUriToAvatarValue(person.photoUri)}
-            name={person.name}
-            size={80}
-          />
-          <Text style={s.name}>{person.name}</Text>
-          {person.tags.length > 0 && (
-            <View style={s.tagRow}>
-              {person.tags.map(t => <TagChip key={t} tag={t} />)}
-            </View>
-          )}
+          <View style={s.avatarRing}>
+            <AvatarDisplay
+              value={photoUriToAvatarValue(person.photoUri)}
+              name={person.name}
+              size={88}
+            />
+          </View>
+          <View style={s.heroInfo}>
+            <Text style={s.name}>{person.name}</Text>
+            {person.tags.length > 0 && (
+              <View style={s.tagRow}>
+                {person.tags.map(t => <TagChip key={t} tag={t} />)}
+              </View>
+            )}
+          </View>
         </View>
 
-        <Section title="Trust Level">
-          <TrustBar level={person.trustLevel} />
-        </Section>
+        {/* Trust Level */}
+        <TrustBar level={person.trustLevel} />
 
+        {/* Description */}
         {person.description ? (
-          <Section title="About">
-            <InfoCard>
-              <Text style={s.bodyText}>{person.description}</Text>
-            </InfoCard>
-          </Section>
+          <SectionCard title="Description">
+            <Text style={s.bodyText}>{person.description}</Text>
+          </SectionCard>
         ) : null}
 
+        {/* Likes & Dislikes side by side */}
         {(person.likes || person.dislikes) ? (
-          <Section title="Personality">
-            <InfoCard>
-              {person.likes ? <InfoRow icon="heart" label="Likes" value={person.likes} /> : null}
-              {person.dislikes ? <InfoRow icon="x-circle" label="Dislikes" value={person.dislikes} /> : null}
-            </InfoCard>
-          </Section>
+          <View style={s.splitRow}>
+            {person.likes ? (
+              <View style={s.splitCard}>
+                <Text style={s.splitLabel}>Likes</Text>
+                <Text style={s.bodyText}>{person.likes}</Text>
+              </View>
+            ) : null}
+            {person.dislikes ? (
+              <View style={s.splitCard}>
+                <Text style={s.splitLabel}>Dislikes</Text>
+                <Text style={s.bodyText}>{person.dislikes}</Text>
+              </View>
+            ) : null}
+          </View>
         ) : null}
 
+        {/* Remember */}
         {person.thingsToRemember ? (
-          <Section title="Remember">
-            <InfoCard>
-              <InfoRow icon="bookmark" label="Key Notes" value={person.thingsToRemember} />
-            </InfoCard>
-          </Section>
+          <SectionCard title="Remember">
+            <Text style={s.bodyText}>{person.thingsToRemember}</Text>
+          </SectionCard>
         ) : null}
 
+        {/* Quick Facts */}
         {person.quickFacts ? (
-          <Section title="Quick Facts">
-            <InfoCard>
-              <Text style={s.bodyText}>{person.quickFacts}</Text>
-            </InfoCard>
-          </Section>
+          <SectionCard title="Quick Facts">
+            <Text style={s.bodyText}>{person.quickFacts}</Text>
+          </SectionCard>
         ) : null}
 
+        {/* Timeline */}
         {allDates.length > 0 ? (
-          <Section title="Timeline">
-            <View style={tl.wrap}>
-              {allDates.map((d, i) => (
-                <View key={i} style={tl.item}>
-                  <View style={tl.line}>
-                    <View style={tl.dot} />
-                    {i < allDates.length - 1 ? <View style={tl.connector} /> : null}
-                  </View>
-                  <View style={tl.content}>
-                    <Text style={tl.dateLabel}>{d.label}</Text>
-                    <Text style={tl.date}>{formatDate(d.date)}</Text>
-                  </View>
+          <SectionCard title="Timeline">
+            {allDates.map((d, i) => (
+              <View key={i} style={[tl.item, i > 0 && tl.itemBorder]}>
+                <View style={tl.dot} />
+                <View style={tl.content}>
+                  <Text style={tl.dateLabel}>{d.label}</Text>
+                  <Text style={tl.date}>{formatDate(d.date)}</Text>
                 </View>
-              ))}
-            </View>
-          </Section>
+              </View>
+            ))}
+          </SectionCard>
         ) : null}
 
         <View style={{ marginHorizontal: 16, marginTop: 8 }}>
@@ -273,20 +244,10 @@ export default function ProfileScreen() {
 }
 
 const tl = StyleSheet.create({
-  wrap: { marginHorizontal: 16 },
-  item: { flexDirection: 'row', gap: 12 },
-  line: { alignItems: 'center', width: 16 },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.accent, marginTop: 4 },
-  connector: { flex: 1, width: 2, backgroundColor: C.border, marginBottom: -4 },
-  content: {
-    flex: 1,
-    backgroundColor: C.panel,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
+  item: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 6 },
+  itemBorder: { borderTopWidth: 1, borderTopColor: C.border },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.accent },
+  content: { flex: 1 },
   dateLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: C.text },
   date: { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textMuted, marginTop: 2 },
 });
@@ -300,6 +261,16 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
+  navIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.panel,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: C.border,
+  },
   backBtn: {
     width: 40,
     height: 40,
@@ -311,20 +282,52 @@ const s = StyleSheet.create({
     borderColor: C.border,
   },
   navActions: { flexDirection: 'row', gap: 8 },
-  navBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: C.panel,
+  deleteBtn: { borderColor: C.red + '44' },
+
+  hero: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 24,
+    gap: 18,
+  },
+  avatarRing: {
+    borderRadius: 999,
+    padding: 3,
+    borderWidth: 3,
+    borderColor: '#3A7EFF',
+    shadowColor: '#3A7EFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  heroInfo: { flex: 1, gap: 10 },
+  name: { fontSize: 26, fontFamily: 'Inter_700Bold', color: C.textBright, lineHeight: 30 },
+  tagRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+
+  splitRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    gap: 10,
+  },
+  splitCard: {
+    flex: 1,
+    backgroundColor: C.panel,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
     borderColor: C.border,
+    gap: 6,
   },
-  deleteBtn: { borderColor: C.red + '44' },
-  hero: { alignItems: 'center', paddingVertical: 24, gap: 12 },
-  name: { fontSize: 26, fontFamily: 'Inter_700Bold', color: C.textBright },
-  tagRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'center', paddingHorizontal: 16 },
+  splitLabel: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    color: C.textMuted,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
   bodyText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: C.text, lineHeight: 22 },
   meta: { fontSize: 12, fontFamily: 'Inter_400Regular', color: C.textDim, textAlign: 'center' },
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center' },

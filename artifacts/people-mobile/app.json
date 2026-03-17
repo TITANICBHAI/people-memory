@@ -30,8 +30,8 @@
         "READ_EXTERNAL_STORAGE"
       ],
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#1A1A1A"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#0D1B2A"
       }
     },
     "web": {
